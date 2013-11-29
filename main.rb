@@ -5,6 +5,7 @@ set :sessions, true
 
 BLACKJACK_AMOUNT = 21
 DEALER_MIN_HIT = 17
+BLACKJACK_BETTING_AMOUNT = 500
 
 helpers do
   def hand_sum(cards) 
@@ -34,23 +35,39 @@ helpers do
   end
 
   def win(msg)
-    @win = "<strong>#{session[:player_name]} wins!!</strong> #{msg}"
+    session[:amount] += session[:player_bet]
+    @winner = "<strong>#{session[:player_name]} wins!! </strong> #{msg} <br/> #{session[:player_name]} has #{session[:amount]} chips!"
     @show_buttons = false
     @play_again = true
   end
 
   def lose(msg)
-    @win = "<strong>#{session[:player_name]} lose... Sorry...</strong> #{msg}"
+    session[:amount] -= session[:player_bet]
+    @show_buttons = false
+    msg = "<strong>#{session[:player_name]} lose... </strong> #{msg}"
+
+    if session[:amount] > 0 
+      msg += "<br/> #{session[:player_name]}'s chip amount is #{session[:amount]}"
+      @play_again = true
+    else
+      msg += "<br/> #{session[:player_name]} has no more chips to bet with, sorry..."
+    end
+    @loser = msg
+  end
+
+  def tie(msg)
+    @winner = "<strong>Tie game!!</strong> <br/>  #{session[:player_name]}'s chip amount is still #{session[:amount]}#{msg}"
     @show_buttons = false
     @play_again = true
   end
 
-  def tie(msg)
-    @win = "<strong>Tie game!!</strong> #{msg}"
-    @show_buttons = false
-    @play_again = true
+  def check_int(str)
+    Integer(foo) rescue nil
   end
 end
+
+#End of helpers
+
 
 before do
   @show_buttons = true
@@ -74,9 +91,28 @@ post '/new_player' do
     halt erb(:new_player)
   end
   session[:player_name] = params[:player_name]
+  session[:amount] = BLACKJACK_BETTING_AMOUNT
 
-  redirect '/game' 
+  redirect '/player_bet' 
 end
+
+get '/player_bet' do
+  erb :player_bet
+end 
+  
+post '/player_bet' do
+  if params[:bet].empty? 
+    @error = "Please enter a bet."
+  elsif params[:bet].to_i  > session[:amount] 
+    @error = "The bet can not exceed player's chip amount."
+  elsif check_int(params[:bet]) == nil
+    @error =  "Please, type only numbers."
+  end
+
+  session[:player_bet] = params[:bet].to_i
+
+  redirect '/game'
+end 
 
 get '/game' do 
   session[:turn] = session[:player_name]
@@ -106,7 +142,7 @@ post '/game/player/hit' do
   elsif total > BLACKJACK_AMOUNT 
     lose("#{session[:player_name]}'s hand total is #{total}, bigger than 21.")
   end
-  erb :game
+  erb :game, layout: false
 end 
 
 post '/game/player/stay' do
@@ -116,7 +152,7 @@ end
 get '/game/dealer_turn' do
   session[:turn] = "dealer"
   
-  @win= "#{session[:player_name]} has chosen to stay."
+  @winner= "#{session[:player_name]} has chosen to stay."
 
   @show_buttons = false
 
@@ -125,14 +161,14 @@ get '/game/dealer_turn' do
   if total == BLACKJACK_AMOUNT
     lose("Dealer hit blackjack.")
   elsif total > BLACKJACK_AMOUNT
-    win("Dealer is busted, he's total is #{total}, bigger than 21")
+    win("Dealer is busted. Dealer's total is #{total}, bigger than 21")
   elsif total > DEALER_MIN_HIT
     redirect '/game/compare'
   else
     @dealer_turn  = true
   end
   
-  erb :game
+  erb :game, layout: false
 end
 
 post '/game/player/dealer_turn/hit' do
@@ -152,7 +188,7 @@ get '/game/compare' do
     tie("#{session[:player_name]}'s total is #{player_total}, and dealer's total is #{dealer_total}.") 
   end
 
-  erb :game
+  erb :game, layout: false
 end
 
 get '/game_over' do

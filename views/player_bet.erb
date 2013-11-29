@@ -1,0 +1,10 @@
+
+<h3><%=session[:player_name]%> has <strong><%=session[:amount]%></strong> chips to bet</h3>
+
+<h4>How many chips do you want to bet?</h4>
+
+<form type="text" method="POST">
+	<input type="text" name="bet" >
+	<br/>
+	<input type="submit" class="btn btn-primary" value="Bet!">
+</form>
